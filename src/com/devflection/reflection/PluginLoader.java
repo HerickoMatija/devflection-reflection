@@ -13,46 +13,48 @@ public class PluginLoader {
     private static final String CLASS_SUFFIX = ".class";
     private static final String JAR_SUFFIX = ".jar";
 
-    private String pluginDirectoryPath;
-    private Map<File, List<DevflectionPlugin>> plugins;
-    private Set<DevflectionPlugin> runningPlugins;
+    private File pluginDirectory;
+    private Map<File, List<ClassnameAndPluginInstance>> plugins;
+    private Set<ClassnameAndPluginInstance> runningPlugins;
 
-    public PluginLoader(String pluginDirectory) {
-        this.pluginDirectoryPath = pluginDirectory;
+    public PluginLoader(String pluginDirectoryPath) {
+        this.pluginDirectory = new File(pluginDirectoryPath);
+        if (!pluginDirectory.isDirectory()) {
+            throw new IllegalArgumentException("Target path is not a directory.");
+        }
         this.plugins = new HashMap<>();
         this.runningPlugins = new HashSet<>();
     }
 
-    public void loadJarClasses() {
-        File pluginDirectory = new File(pluginDirectoryPath);
-
-        if (!pluginDirectory.isDirectory()) {
-            throw new IllegalArgumentException("Target path is not a directory.");
-        }
-
-        for (File file : pluginDirectory.listFiles()) {
-            if (file.getName().endsWith(JAR_SUFFIX)) {
-                plugins.put(file, getAllPluginsFromJar(file));
-            }
-        }
+    public void loadAndStartPlugins() {
+        loadJarClasses();
+        startPlugins();
     }
 
-    private List<DevflectionPlugin> getAllPluginsFromJar(File file) {
-        List<DevflectionPlugin> devflectionPlugins = new ArrayList<>();
+    private void loadJarClasses() {
+        Arrays.stream(pluginDirectory.listFiles())
+                .filter(file -> file.getName().endsWith(JAR_SUFFIX))
+                .forEach(file -> plugins.put(file, getAllPluginClassesFromJar(file)));
+    }
+
+    private List<ClassnameAndPluginInstance> getAllPluginClassesFromJar(File file) {
+        List<ClassnameAndPluginInstance> devflectionPlugins = new ArrayList<>();
+
         try {
             String jarURL = "jar:" + file.toURI().toURL() + "!/";
             URL urls[] = {new URL(jarURL)};
             URLClassLoader ucl = new URLClassLoader(urls);
 
             for (String className : getAllClassesFromFile(new JarFile(file))) {
-                Class<?> aClass = Class.forName(className, false, ucl);
+                Class<?> aClass = Class.forName(className, true, ucl);
 
                 if (DevflectionPlugin.class.isAssignableFrom(aClass)) {
                     DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
-                    devflectionPlugins.add(devflectionPlugin);
+                    devflectionPlugins.add(new ClassnameAndPluginInstance(className, devflectionPlugin));
                 }
             }
         } catch (Exception | Error e) {
+            // ignoring exceptions and errors so we just skip the jar
         }
 
         return devflectionPlugins;
@@ -67,16 +69,13 @@ public class PluginLoader {
                 .collect(Collectors.toList());
     }
 
-    public void startPlugins() {
+    private void startPlugins() {
         plugins.entrySet().stream()
                 .filter(this::pluginFileExists)
                 .map(Map.Entry::getValue)
                 .flatMap(Collection::stream)
-                .filter(plugin -> !runningPlugins.contains(plugin))
-                .forEach(plugin -> {
-                    plugin.startPlugin();
-                    runningPlugins.add(plugin);
-                });
+                .filter(holder -> !runningPlugins.contains(holder))
+                .forEach(this::startPluginAndAddToRunning);
     }
 
     private boolean pluginFileExists(Map.Entry entry) {
@@ -84,5 +83,38 @@ public class PluginLoader {
             return ((File) entry.getKey()).exists();
         }
         return false;
+    }
+
+    private void startPluginAndAddToRunning(ClassnameAndPluginInstance classnameAndPluginInstance) {
+        classnameAndPluginInstance.getPluginInstance().startPlugin();
+        runningPlugins.add(classnameAndPluginInstance);
+    }
+
+    private class ClassnameAndPluginInstance {
+        private String className;
+        private DevflectionPlugin pluginInstance;
+
+        public ClassnameAndPluginInstance(String className, DevflectionPlugin pluginInstance) {
+            this.className = className;
+            this.pluginInstance = pluginInstance;
+        }
+
+        public DevflectionPlugin getPluginInstance() {
+            return pluginInstance;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj instanceof ClassnameAndPluginInstance) {
+                ClassnameAndPluginInstance that = (ClassnameAndPluginInstance) obj;
+                return this.className.equals(that.className);
+            }
+            return false;
+        }
+
+        @Override
+        public int hashCode() {
+            return className.hashCode();
+        }
     }
 }
