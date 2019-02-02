@@ -11,13 +11,17 @@ public class Main {
         }
 
         PluginLoader pluginLoader = new PluginLoader(pluginDirectory);
-        String userInput = "";
-
         Scanner scanner = new Scanner(System.in);
-        while (!userInput.equals("exit")) {
-            pluginLoader.loadJarClasses();
 
-            pluginLoader.startPlugins();
+        String userInput = "";
+        while (!userInput.equals("exit")) {
+            pluginLoader.loadAndStartPlugins();
+
+            try {
+                Thread.sleep(15 * 1000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
             System.out.println("Press Enter to continue or write 'exit' to stop...");
             userInput = scanner.nextLine();
