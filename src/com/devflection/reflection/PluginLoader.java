@@ -10,86 +10,115 @@ import java.util.stream.Collectors;
 
 public class PluginLoader {
 
-    private static final String CLASS_SUFFIX = ".class";
-    private static final String JAR_SUFFIX = ".jar";
+    private static final String CLASS_EXTENSION = ".class";
+    private static final String JAR_EXTENSION = ".jar";
 
     private File pluginDirectory;
     private Map<File, List<ClassnameAndPluginInstance>> plugins;
     private Set<ClassnameAndPluginInstance> runningPlugins;
 
     public PluginLoader(String pluginDirectoryPath) {
+        // initialize a file for the plugin directory and throw an exception if it is not a directory
         this.pluginDirectory = new File(pluginDirectoryPath);
         if (!pluginDirectory.isDirectory()) {
             throw new IllegalArgumentException("Target path is not a directory.");
         }
+        // initialize the map and set of the plugins
         this.plugins = new HashMap<>();
         this.runningPlugins = new HashSet<>();
     }
 
-    public void loadAndStartPlugins() {
-        loadJarClasses();
-        startPlugins();
+    public void startPlugins() {
+        loadPluginInstances();
+        startPluginInstances();
     }
 
-    private void loadJarClasses() {
+    public void stopPlugins() {
+        loadPluginInstances();
+        stopPluginInstances();
+    }
+
+    private void loadPluginInstances() {
+        // iterate over the files in the plugin directory and for each jar file find and create instances of classes
+        // that implement our DevflectionPlugin interface
         Arrays.stream(pluginDirectory.listFiles())
-                .filter(file -> file.getName().endsWith(JAR_SUFFIX))
-                .forEach(file -> plugins.put(file, getAllPluginClassesFromJar(file)));
+                .filter(file -> file.getName().endsWith(JAR_EXTENSION))
+                .forEach(file -> plugins.put(file, getAllPluginsFrom(file)));
     }
 
-    private List<ClassnameAndPluginInstance> getAllPluginClassesFromJar(File file) {
-        List<ClassnameAndPluginInstance> devflectionPlugins = new ArrayList<>();
-
+    private List<ClassnameAndPluginInstance> getAllPluginsFrom(File file) {
         try {
+            // preapre the classLoader for the jar file
             String jarURL = "jar:" + file.toURI().toURL() + "!/";
-            URL urls[] = {new URL(jarURL)};
-            URLClassLoader ucl = new URLClassLoader(urls);
+            URL[] urls = {new URL(jarURL)};
+            URLClassLoader urlClassLoader = new URLClassLoader(urls);
 
-            for (String className : getAllClassesFromFile(new JarFile(file))) {
-                Class<?> aClass = Class.forName(className, true, ucl);
+            // initialize the list of plugins we find
+            List<ClassnameAndPluginInstance> devflectionPlugins = new ArrayList<>();
 
+            // for each class in the jar file
+            for (String className : getAllClassNamesFrom(new JarFile(file))) {
+                // we load the class using the URLClassLoader that has the link to the current jar file
+                Class<?> aClass = Class.forName(className, false, urlClassLoader);
+
+                // using reflection we check if class implements our plugin interface - DevflectionPlugin
                 if (DevflectionPlugin.class.isAssignableFrom(aClass)) {
+                    // using reflection we create an instance of the plugin
                     DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
+
                     devflectionPlugins.add(new ClassnameAndPluginInstance(className, devflectionPlugin));
                 }
             }
-        } catch (Exception | Error e) {
-            // ignoring exceptions and errors so we just skip the jar
-        }
 
-        return devflectionPlugins;
+            return devflectionPlugins;
+
+        } catch (Exception | Error e) {
+            // if we encounter an exception or error return an empty list for this jar and continue
+            return Collections.emptyList();
+        }
     }
 
-    private List<String> getAllClassesFromFile(JarFile jarFile) {
+    private List<String> getAllClassNamesFrom(JarFile jarFile) {
+        // iterate over all entries in the jar file and check if they end with .class, then replace '/' chars with '.'
+        // and remove the .class extension.
+        // The returning format should be a full classname, e.g. com.devflection.reflection.PluginLoader
         return jarFile.stream()
                 .map(JarEntry::getName)
-                .filter(name -> name.endsWith(CLASS_SUFFIX))
+                .filter(name -> name.endsWith(CLASS_EXTENSION))
                 .map(name -> name.replace("/", "."))
-                .map(name -> name.substring(0, name.length() - CLASS_SUFFIX.length()))
+                .map(name -> name.substring(0, name.length() - CLASS_EXTENSION.length()))
                 .collect(Collectors.toList());
     }
 
-    private void startPlugins() {
-        plugins.entrySet().stream()
-                .filter(this::pluginFileExists)
-                .map(Map.Entry::getValue)
+    private void startPluginInstances() {
+        // iterate over all of the found plugins and if they are not running yet, start them
+        plugins.values().stream()
                 .flatMap(Collection::stream)
                 .filter(holder -> !runningPlugins.contains(holder))
-                .forEach(this::startPluginAndAddToRunning);
+                .forEach(this::startPluginAndAddToRunningPlugins);
     }
 
-    private boolean pluginFileExists(Map.Entry entry) {
-        if (entry.getKey() instanceof File) {
-            return ((File) entry.getKey()).exists();
-        }
-        return false;
-    }
-
-    private void startPluginAndAddToRunning(ClassnameAndPluginInstance classnameAndPluginInstance) {
+    private void startPluginAndAddToRunningPlugins(ClassnameAndPluginInstance classnameAndPluginInstance) {
         classnameAndPluginInstance.getPluginInstance().startPlugin();
         runningPlugins.add(classnameAndPluginInstance);
     }
 
+    private void stopPluginInstances() {
+        // iterate over all of the found plugins and stop them
+        plugins.values().stream()
+                .flatMap(Collection::stream)
+                .forEach(this::stopPluginAndRemoveFromRunningPlugins);
+    }
+
+    private void stopPluginAndRemoveFromRunningPlugins(ClassnameAndPluginInstance classnameAndPluginInstance) {
+        classnameAndPluginInstance.getPluginInstance().stopPlugin();
+        runningPlugins.remove(classnameAndPluginInstance);
+    }
+
+    /**
+     * A holder class that joins a classname string with the specific
+     * {@link DevflectionPlugin} instance we created for it.
+     */
     private class ClassnameAndPluginInstance {
         private String className;
         private DevflectionPlugin pluginInstance;
