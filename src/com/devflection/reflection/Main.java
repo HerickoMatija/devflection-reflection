@@ -40,6 +40,7 @@ public class Main {
                     pluginLoader.stopPlugins();
                     break;
                 case "exit":
+					System.exit(0);
                     break;
             }
 
