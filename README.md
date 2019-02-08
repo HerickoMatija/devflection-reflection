@@ -20,7 +20,7 @@ Compile classes with
 	
 Create the jar file 
 
-	jar -cmfv src/resources/MANIFEST.mf DevflectionReflection.jar -C target .
+	jar cmfv src/resources/MANIFEST.mf DevflectionReflection.jar -C target .
 
 Start the jar file
 
@@ -44,8 +44,13 @@ For each of the plugins compile classes with
 	javac pluginImplementations/Plugin2/src/com/devflection/plugin2/Plugin2.java -sourcepath pluginImplementations/Plugin2/src -d pluginImplementations/Plugin2/target
 	javac pluginImplementations/Plugin3/src/com/devflection/plugin3/Plugin3.java -sourcepath pluginImplementations/Plugin3/src -d pluginImplementations/Plugin3/target
 	
+Create a folder to hold all the jar we want to plug-in and cd into it
+
+    mkdir plugins	
+    cd plugins
+	
 For each of the plugins create the jar file 
 
-	jar -cfv Plugin1.jar -C pluginImplementations/Plugin1/target plugins
-	jar -cfv Plugin2.jar -C pluginImplementations/Plugin2/target plugins
-	jar -cfv Plugin3.jar -C pluginImplementations/Plugin3/target plugins
+	jar cvf Plugin1.jar -C ../pluginImplementations/Plugin1/target .
+	jar cvf Plugin2.jar -C ../pluginImplementations/Plugin2/target .
+	jar cvf Plugin3.jar -C ../pluginImplementations/Plugin3/target .
