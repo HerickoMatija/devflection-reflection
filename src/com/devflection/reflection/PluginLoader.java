@@ -59,10 +59,11 @@ public class PluginLoader {
             // for each class in the jar file
             for (String className : getAllClassNamesFrom(new JarFile(file))) {
                 // we load the class using the URLClassLoader that has the link to the current jar file
-                Class<?> aClass = Class.forName(className, false, urlClassLoader);
+                Class<?> aClass = Class.forName(className, true, urlClassLoader);
 
                 // using reflection we check if class implements our plugin interface - DevflectionPlugin
-                if (DevflectionPlugin.class.isAssignableFrom(aClass)) {
+                // and that it is not the interface class
+                if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
                     // using reflection we create an instance of the plugin
                     DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
 
