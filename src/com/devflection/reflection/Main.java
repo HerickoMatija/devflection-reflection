@@ -1,6 +1,7 @@
 package com.devflection.reflection;
 
-import java.util.Scanner;
+import com.devflection.reflection.threads.PluginLoadThread;
+import com.devflection.reflection.threads.UserInputThread;
 
 public class Main {
 
@@ -20,36 +21,10 @@ public class Main {
         // create an instance of our plugin loader
         PluginLoader pluginLoader = new PluginLoader(pluginDirectory);
 
-        // scanner reads user input which we save on userInput variable
-        Scanner scanner = new Scanner(System.in);
-        String userInput;
+        PluginLoadThread pluginLoadThread = new PluginLoadThread(pluginLoader, sleepTime);
+        UserInputThread userInputThread = new UserInputThread(pluginLoader);
 
-        // infinite loop
-        while (true) {
-
-            // get user input
-            System.out.println("Press enter to continue or write 'start', 'stop' or 'exit' to start/stop plugins or exit...");
-            userInput = scanner.nextLine();
-
-            // execute the action that the user input
-            switch (userInput) {
-                case "start":
-                    pluginLoader.startPlugins();
-                    break;
-                case "stop":
-                    pluginLoader.stopPlugins();
-                    break;
-                case "exit":
-					System.exit(0);
-                    break;
-            }
-
-            // wait a while between user prompts
-            try {
-                Thread.sleep(sleepTime);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
+        pluginLoadThread.start();
+        userInputThread.start();
     }
 }

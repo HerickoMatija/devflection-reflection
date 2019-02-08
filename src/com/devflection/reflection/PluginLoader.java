@@ -3,7 +3,15 @@ package com.devflection.reflection;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -13,9 +21,9 @@ public class PluginLoader {
     private static final String CLASS_EXTENSION = ".class";
     private static final String JAR_EXTENSION = ".jar";
 
-    private File pluginDirectory;
-    private Map<File, List<ClassnameAndPluginInstance>> plugins;
-    private Set<ClassnameAndPluginInstance> runningPlugins;
+    private final File pluginDirectory;
+    private final Map<File, List<ClassnameAndPluginInstance>> plugins;
+    private final Set<ClassnameAndPluginInstance> runningPlugins;
 
     public PluginLoader(String pluginDirectoryPath) {
         // initialize a file for the plugin directory and throw an exception if it is not a directory
@@ -28,17 +36,32 @@ public class PluginLoader {
         this.runningPlugins = new HashSet<>();
     }
 
-    public void startPlugins() {
-        loadPluginInstances();
-        startPluginInstances();
+    public synchronized void startPlugins() {
+        // iterate over all of the found plugins and if they are not running yet, start them
+        plugins.values().stream()
+                .flatMap(Collection::stream)
+                .filter(holder -> !runningPlugins.contains(holder))
+                .forEach(this::startPluginAndAddToRunningPlugins);
     }
 
-    public void stopPlugins() {
-        loadPluginInstances();
-        stopPluginInstances();
+    private void startPluginAndAddToRunningPlugins(ClassnameAndPluginInstance classnameAndPluginInstance) {
+        classnameAndPluginInstance.getPluginInstance().startPlugin();
+        runningPlugins.add(classnameAndPluginInstance);
     }
 
-    private void loadPluginInstances() {
+    public synchronized void stopPlugins() {
+        // iterate over all of the found plugins and stop them
+        plugins.values().stream()
+                .flatMap(Collection::stream)
+                .forEach(this::stopPluginAndRemoveFromRunningPlugins);
+    }
+
+    private void stopPluginAndRemoveFromRunningPlugins(ClassnameAndPluginInstance classnameAndPluginInstance) {
+        classnameAndPluginInstance.getPluginInstance().stopPlugin();
+        runningPlugins.remove(classnameAndPluginInstance);
+    }
+
+    public synchronized void loadPluginInstances() {
         // iterate over the files in the plugin directory and for each jar file find and create instances of classes
         // that implement our DevflectionPlugin interface
         Arrays.stream(pluginDirectory.listFiles())
@@ -91,31 +114,6 @@ public class PluginLoader {
                 .map(name -> name.replace("/", "."))
                 .map(name -> name.substring(0, name.length() - CLASS_EXTENSION.length()))
                 .collect(Collectors.toList());
-    }
-
-    private void startPluginInstances() {
-        // iterate over all of the found plugins and if they are not running yet, start them
-        plugins.values().stream()
-                .flatMap(Collection::stream)
-                .filter(holder -> !runningPlugins.contains(holder))
-                .forEach(this::startPluginAndAddToRunningPlugins);
-    }
-
-    private void startPluginAndAddToRunningPlugins(ClassnameAndPluginInstance classnameAndPluginInstance) {
-        classnameAndPluginInstance.getPluginInstance().startPlugin();
-        runningPlugins.add(classnameAndPluginInstance);
-    }
-
-    private void stopPluginInstances() {
-        // iterate over all of the found plugins and stop them
-        plugins.values().stream()
-                .flatMap(Collection::stream)
-                .forEach(this::stopPluginAndRemoveFromRunningPlugins);
-    }
-
-    private void stopPluginAndRemoveFromRunningPlugins(ClassnameAndPluginInstance classnameAndPluginInstance) {
-        classnameAndPluginInstance.getPluginInstance().stopPlugin();
-        runningPlugins.remove(classnameAndPluginInstance);
     }
 
     /**
