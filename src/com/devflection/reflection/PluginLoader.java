@@ -72,8 +72,10 @@ public class PluginLoader {
 
             return devflectionPlugins;
 
-        } catch (Exception | Error e) {
+        } catch (Exception e) {
             // if we encounter an exception or error return an empty list for this jar and continue
+            System.out.println("Encountered a problem while loading " + file.getName());
+            e.printStackTrace();
             return Collections.emptyList();
         }
     }
