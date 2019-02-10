@@ -66,6 +66,7 @@ public class PluginLoader {
         // that implement our DevflectionPlugin interface
         Arrays.stream(pluginDirectory.listFiles())
                 .filter(file -> file.getName().endsWith(JAR_EXTENSION))
+                .filter(file -> !plugins.containsKey(file))
                 .forEach(file -> plugins.put(file, getAllPluginsFrom(file)));
     }
 
