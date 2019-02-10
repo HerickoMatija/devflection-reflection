@@ -3,15 +3,7 @@ package com.devflection.reflection;
 import java.io.File;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -21,22 +13,18 @@ public class PluginLoader {
     private static final String CLASS_EXTENSION = ".class";
     private static final String JAR_EXTENSION = ".jar";
 
-    private final File pluginDirectory;
+    private final String pluginDirectoryPath;
     private final Map<File, List<ClassnameAndPluginInstance>> plugins;
     private final Set<ClassnameAndPluginInstance> runningPlugins;
 
     public PluginLoader(String pluginDirectoryPath) {
-        // initialize a file for the plugin directory and throw an exception if it is not a directory
-        this.pluginDirectory = new File(pluginDirectoryPath);
-        if (!pluginDirectory.isDirectory()) {
-            throw new IllegalArgumentException("Target path is not a directory.");
-        }
-        // initialize the map and set of the plugins
+        this.pluginDirectoryPath = pluginDirectoryPath;
         this.plugins = new HashMap<>();
         this.runningPlugins = new HashSet<>();
     }
 
     public synchronized void startPlugins() {
+        System.out.println(getClass() + ": Starting all plugins...");
         // iterate over all of the found plugins and if they are not running yet, start them
         plugins.values().stream()
                 .flatMap(Collection::stream)
@@ -50,6 +38,7 @@ public class PluginLoader {
     }
 
     public synchronized void stopPlugins() {
+        System.out.println(getClass() + ": Stopping all plugins...");
         // iterate over all of the found plugins and stop them
         plugins.values().stream()
                 .flatMap(Collection::stream)
@@ -62,6 +51,11 @@ public class PluginLoader {
     }
 
     public synchronized void loadPluginInstances() {
+        System.out.println(getClass() + ": Loading plugins...");
+        File pluginDirectory = new File(pluginDirectoryPath);
+        if (!pluginDirectory.isDirectory()) {
+            throw new IllegalArgumentException("Target path is not a directory.");
+        }
         // iterate over the files in the plugin directory and for each jar file find and create instances of classes
         // that implement our DevflectionPlugin interface
         Arrays.stream(pluginDirectory.listFiles())
@@ -88,6 +82,7 @@ public class PluginLoader {
                 // using reflection we check if class implements our plugin interface - DevflectionPlugin
                 // and that it is not the interface class
                 if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
+                    System.out.println(getClass() + ": Found class '" + aClass + "' that implements the plugin interface.");
                     // using reflection we create an instance of the plugin
                     DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
 
@@ -99,7 +94,7 @@ public class PluginLoader {
 
         } catch (Exception e) {
             // if we encounter an exception or error return an empty list for this jar and continue
-            System.out.println("Encountered a problem while loading " + file.getName());
+            System.out.println(getClass() + ": Encountered a problem while loading " + file.getName());
             e.printStackTrace();
             return Collections.emptyList();
         }

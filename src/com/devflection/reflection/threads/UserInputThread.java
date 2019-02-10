@@ -22,7 +22,7 @@ public class UserInputThread extends Thread {
         while (true) {
 
             // get user input
-            System.out.println("Write 'start', 'stop' or 'exit' to start/stop plugins or exit...");
+            System.out.println(getClass() + ": Write 'start', 'stop', 'remove' or 'exit' to start/stop plugins or exit...");
             userInput = scanner.nextLine();
 
             // execute the action that the user input

@@ -3,11 +3,11 @@ package com.devflection.reflection;
 public interface DevflectionPlugin {
 
     default void startPlugin() {
-        System.out.println("Starting plugin " + getPluginName() + "....");
+        System.out.println(getClass() + " :Starting plugin " + getPluginName() + "....");
     }
 
     default void stopPlugin() {
-        System.out.println("Stopping plugin " + getPluginName() + "....");
+        System.out.println(getClass() + ": Stopping plugin " + getPluginName() + "....");
     }
 
     String getPluginName();

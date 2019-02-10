@@ -6,8 +6,8 @@ public class Plugin1WorkerThread extends Thread {
 
     @Override
     public void run() {
-        while(!stop) {
-            System.out.println("Plugin1 is executing some logic...");
+        while (!stop) {
+            System.out.println(getClass + ": Plugin1 is executing some logic...");
 
             try {
                 Thread.sleep(5000);
@@ -16,7 +16,7 @@ public class Plugin1WorkerThread extends Thread {
             }
         }
 
-        System.out.println("Plugin1 is shutting down execution...");
+        System.out.println(getClass + ": Plugin1 is shutting down execution...");
     }
 
     public void stopExecution() {
