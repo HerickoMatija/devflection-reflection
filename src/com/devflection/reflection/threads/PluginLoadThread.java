@@ -14,8 +14,8 @@ public class PluginLoadThread extends Thread {
 
     @Override
     public void run() {
-        while(true) {
-            pluginLoader.loadPluginInstances();
+        while (true) {
+            pluginLoader.loadPlugins();
             try {
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {

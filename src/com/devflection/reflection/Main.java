@@ -8,7 +8,7 @@ public class Main {
     public static void main(String[] args) {
         // default values for plugin directory and sleep time between user prompts
         String pluginDirectory = "plugins";
-        int sleepTime = 5 * 1000;
+        int sleepTime = 30 * 1000;
 
         // parsing user inputs for plugin directory and sleep time
         if (args.length == 1) {
