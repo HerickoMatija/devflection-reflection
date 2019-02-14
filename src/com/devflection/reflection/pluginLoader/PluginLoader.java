@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,37 +35,38 @@ public class PluginLoader implements IPluginLoader {
         }
 
         // get all Jar files from directory
-        for (File file : pluginDirectory.listFiles()) {
+        Arrays.stream(pluginDirectory.listFiles())
+                .filter(file -> file.getName().endsWith(JAR_EXTENSION))
+                .forEach(this::loadPluginFromJar);
+    }
 
-            if (file.getName().endsWith(JAR_EXTENSION)) {
-                try {
-                    // preapre the classLoader for the jar file
-                    String jarURL = "jar:" + file.toURI().toURL() + "!/";
-                    URL[] urls = {new URL(jarURL)};
-                    URLClassLoader urlClassLoader = new URLClassLoader(urls);
+    private void loadPluginFromJar(File file) {
+        try {
+            // preapre the classLoader for the jar file
+            String jarURL = "jar:" + file.toURI().toURL() + "!/";
+            URL[] urls = {new URL(jarURL)};
+            URLClassLoader urlClassLoader = new URLClassLoader(urls);
 
-                    // for each class in the jar file
-                    for (String className : getAllClassNamesFrom(new JarFile(file))) {
-                        // we load the class using the URLClassLoader that has the link to the current jar file
-                        Class<?> aClass = Class.forName(className, true, urlClassLoader);
+            // for each class in the jar file
+            for (String className : getAllClassNamesFrom(new JarFile(file))) {
+                // we load the class using the URLClassLoader that has the link to the current jar file
+                Class<?> aClass = Class.forName(className, true, urlClassLoader);
 
-                        // using reflection we check if class implements our plugin interface - DevflectionPlugin
-                        // and that it is not the interface class
-                        if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
-                            System.out.println(getClass() + ": Found class '" + aClass + "' that implements the plugin interface.");
-                            // using reflection we create an instance of the plugin
-                            DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
-                            DevflectionPluginHolder pluginHolder = new DevflectionPluginHolder(className, devflectionPlugin, urlClassLoader);
-                            plugins.add(pluginHolder);
-                            break;
-                        }
-                    }
-                } catch (Exception e) {
-                    // if we encounter an exception or error return an empty list for this jar and continue
-                    System.out.println(getClass() + ": Encountered a problem while loading " + file.getName());
-                    e.printStackTrace();
+                // using reflection we check if class implements our plugin interface - DevflectionPlugin
+                // and that it is not the interface class
+                if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
+                    System.out.println(getClass() + ": Found class '" + aClass + "' that implements the plugin interface.");
+                    // using reflection we create an instance of the plugin
+                    DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
+                    DevflectionPluginHolder pluginHolder = new DevflectionPluginHolder(className, devflectionPlugin, urlClassLoader);
+                    plugins.add(pluginHolder);
+                    break;
                 }
             }
+        } catch (Exception e) {
+            // if we encounter an exception or error return an empty list for this jar and continue
+            System.out.println(getClass() + ": Encountered a problem while loading " + file.getName());
+            e.printStackTrace();
         }
     }
 
