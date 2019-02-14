@@ -1,4 +1,6 @@
-package com.devflection.reflection;
+package com.devflection.reflection.pluginLoader;
+
+import com.devflection.reflection.DevflectionPlugin;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,7 +13,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
-public class PluginLoader {
+public class PluginLoader implements IPluginLoader {
 
     private static final String CLASS_EXTENSION = ".class";
     private static final String JAR_EXTENSION = ".jar";
@@ -24,6 +26,7 @@ public class PluginLoader {
         this.plugins = new HashSet<>();
     }
 
+    @Override
     public void loadPlugins() {
         File pluginDirectory = new File(pluginDirectoryPath);
         if (!pluginDirectory.isDirectory()) {
@@ -68,7 +71,7 @@ public class PluginLoader {
     private List<String> getAllClassNamesFrom(JarFile jarFile) {
         // iterate over all entries in the jar file and check if they end with .class, then replace '/' chars with '.'
         // and remove the .class extension.
-        // The returning format should be a full classname, e.g. com.devflection.reflection.PluginLoader
+        // The returning format should be a full classname, e.g. com.devflection.reflection.pluginLoader.PluginLoader
         return jarFile.stream()
                 .map(JarEntry::getName)
                 .filter(name -> name.endsWith(CLASS_EXTENSION))
@@ -77,6 +80,7 @@ public class PluginLoader {
                 .collect(Collectors.toList());
     }
 
+    @Override
     public void startPlugins() {
         // go over all the instances and start them if they are not already started
         plugins.stream()
@@ -84,6 +88,7 @@ public class PluginLoader {
                 .forEach(DevflectionPluginHolder::startPlugin);
     }
 
+    @Override
     public void stopPlugins() {
         // go over all instances and stop them
         // wait a bit for all plugins to stop

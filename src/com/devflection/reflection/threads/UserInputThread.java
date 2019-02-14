@@ -1,15 +1,15 @@
 package com.devflection.reflection.threads;
 
-import com.devflection.reflection.PluginLoader;
+import com.devflection.reflection.pluginLoader.IPluginLoader;
 
 import java.util.Scanner;
 
 public class UserInputThread extends Thread {
 
-    private final PluginLoader pluginLoader;
+    private final IPluginLoader pluginLoader;
     private final Scanner scanner;
 
-    public UserInputThread(PluginLoader pluginLoader) {
+    public UserInputThread(IPluginLoader pluginLoader) {
         this.pluginLoader = pluginLoader;
         this.scanner = new Scanner(System.in);
     }

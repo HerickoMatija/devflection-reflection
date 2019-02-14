@@ -1,13 +1,13 @@
 package com.devflection.reflection.threads;
 
-import com.devflection.reflection.PluginLoader;
+import com.devflection.reflection.pluginLoader.IPluginLoader;
 
 public class PluginLoadThread extends Thread {
 
-    private final PluginLoader pluginLoader;
+    private final IPluginLoader pluginLoader;
     private final int sleepTime;
 
-    public PluginLoadThread(PluginLoader pluginLoader, int sleepTime) {
+    public PluginLoadThread(IPluginLoader pluginLoader, int sleepTime) {
         this.pluginLoader = pluginLoader;
         this.sleepTime = sleepTime;
     }

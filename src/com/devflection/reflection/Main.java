@@ -1,5 +1,7 @@
 package com.devflection.reflection;
 
+import com.devflection.reflection.pluginLoader.IPluginLoader;
+import com.devflection.reflection.pluginLoader.PluginLoader;
 import com.devflection.reflection.threads.PluginLoadThread;
 import com.devflection.reflection.threads.UserInputThread;
 
@@ -19,7 +21,7 @@ public class Main {
         }
 
         // create an instance of our plugin loader
-        PluginLoader pluginLoader = new PluginLoader(pluginDirectory);
+        IPluginLoader pluginLoader = new PluginLoader(pluginDirectory);
 
         PluginLoadThread pluginLoadThread = new PluginLoadThread(pluginLoader, sleepTime);
         UserInputThread userInputThread = new UserInputThread(pluginLoader);
@@ -92,7 +94,7 @@ public static void main(String[] args) {
     private static List<String> getAllClassNamesFrom(JarFile jarFile) {
         // iterate over all entries in the jar file and check if they end with .class, then replace '/' chars with '.'
         // and remove the .class extension.
-        // The returning format should be a full classname, e.g. com.devflection.reflection.PluginLoader
+        // The returning format should be a full classname, e.g. com.devflection.reflection.pluginLoader.PluginLoader
         return jarFile.stream()
                 .map(JarEntry::getName)
                 .filter(name -> name.endsWith(CLASS_EXTENSION))
