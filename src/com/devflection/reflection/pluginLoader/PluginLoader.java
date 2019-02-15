@@ -4,11 +4,13 @@ import com.devflection.reflection.DevflectionPlugin;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -37,35 +39,34 @@ public class PluginLoader implements IPluginLoader {
         // get all Jar files from directory
         Arrays.stream(pluginDirectory.listFiles())
                 .filter(file -> file.getName().endsWith(JAR_EXTENSION))
-                .forEach(this::loadPluginFromJar);
+                .forEach(this::createClassLoaderAndCreatePluginInstance);
     }
 
-    private void loadPluginFromJar(File file) {
+    private void createClassLoaderAndCreatePluginInstance(File file) {
+        Optional<URLClassLoader> urlClassLoaderForFile = createURLClassLoaderForFile(file);
+        if (urlClassLoaderForFile.isPresent()) {
+            loadPluginFromJar(file, urlClassLoaderForFile.get());
+        }
+    }
+
+    private Optional<URLClassLoader> createURLClassLoaderForFile(File file) {
         try {
-            // preapre the classLoader for the jar file
+            // prepare the classLoader for the jar file
             String jarURL = "jar:" + file.toURI().toURL() + "!/";
-            URL[] urls = {new URL(jarURL)};
-            URLClassLoader urlClassLoader = new URLClassLoader(urls);
+            URL[] urls = new URL[]{new URL(jarURL)};
+            return Optional.of(new URLClassLoader(urls));
+        } catch (MalformedURLException e) {
+            // log error
+            return Optional.empty();
+        }
+    }
 
+    private void loadPluginFromJar(File file, URLClassLoader urlClassLoader) {
+        try (JarFile jarFile = new JarFile(file)) {
             // for each class in the jar file
-            for (String className : getAllClassNamesFrom(new JarFile(file))) {
-                // we load the class using the URLClassLoader that has the link to the current jar file
-                Class<?> aClass = Class.forName(className, true, urlClassLoader);
-
-                // using reflection we check if class implements our plugin interface - DevflectionPlugin
-                // and that it is not the interface class
-                if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
-                    System.out.println(getClass() + ": Found class '" + aClass + "' that implements the plugin interface.");
-                    // using reflection we create an instance of the plugin
-                    DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
-                    DevflectionPluginHolder pluginHolder = new DevflectionPluginHolder(className, devflectionPlugin, urlClassLoader);
-                    plugins.add(pluginHolder);
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            // if we encounter an exception or error return an empty list for this jar and continue
-            System.out.println(getClass() + ": Encountered a problem while loading " + file.getName());
+            getAllClassNamesFrom(jarFile)
+                    .forEach(className -> createDevflectionPluginHolderForClass(className, urlClassLoader));
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -80,6 +81,29 @@ public class PluginLoader implements IPluginLoader {
                 .map(name -> name.replace("/", "."))
                 .map(name -> name.substring(0, name.length() - CLASS_EXTENSION.length()))
                 .collect(Collectors.toList());
+    }
+
+    private void createDevflectionPluginHolderForClass(String className, URLClassLoader urlClassLoader) {
+        try {
+            // we load the class using the URLClassLoader that has the link to the current jar file
+            Class<?> aClass = Class.forName(className, true, urlClassLoader);
+
+            // using reflection we check if class implements our plugin interface - DevflectionPlugin
+            // and that it is not the interface class
+            if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
+                System.out.println(getClass() + ": Found class '" + aClass + "' that implements the plugin interface.");
+                // using reflection we create an instance of the plugin
+                DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
+                DevflectionPluginHolder pluginHolder = new DevflectionPluginHolder(className, devflectionPlugin, urlClassLoader);
+                plugins.add(pluginHolder);
+            }
+        } catch (IllegalAccessException e) {
+            // log that we cannot access class
+        } catch (InstantiationException e) {
+            e.printStackTrace();
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
