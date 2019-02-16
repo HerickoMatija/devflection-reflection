@@ -7,11 +7,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -36,7 +32,6 @@ public class PluginLoader implements IPluginLoader {
             throw new IllegalArgumentException("Target plugin directory path is not a directory.");
         }
 
-        // get all Jar files from directory
         Arrays.stream(pluginDirectory.listFiles())
                 .filter(file -> file.getName().endsWith(JAR_EXTENSION))
                 .forEach(this::createClassLoaderAndCreatePluginInstance);
@@ -44,37 +39,52 @@ public class PluginLoader implements IPluginLoader {
 
     private void createClassLoaderAndCreatePluginInstance(File file) {
         Optional<URLClassLoader> urlClassLoaderForFile = createURLClassLoaderForFile(file);
-        if (urlClassLoaderForFile.isPresent()) {
-            loadPluginFromJar(file, urlClassLoaderForFile.get());
-        }
+        urlClassLoaderForFile.ifPresent(urlClassLoader -> loadPluginFromJar(file, urlClassLoader));
     }
 
     private Optional<URLClassLoader> createURLClassLoaderForFile(File file) {
         try {
-            // prepare the classLoader for the jar file
             String jarURL = "jar:" + file.toURI().toURL() + "!/";
             URL[] urls = new URL[]{new URL(jarURL)};
             return Optional.of(new URLClassLoader(urls));
         } catch (MalformedURLException e) {
-            // log error
+            // log malformed url exception information
             return Optional.empty();
         }
     }
 
+    /**
+     * This method opens the given jar file, looks at all the classes and finds the ones implementing the
+     * {@link DevflectionPlugin} interface and creates a {@link DevflectionPluginHolder} for each of them and adds
+     * them to the set of running plugins
+     *
+     * @param file The given jar file that we want to check for classes implementing the {@link DevflectionPlugin} interface
+     * @param urlClassLoader The class loader that we want to use to load classes in the given jar file
+     */
     private void loadPluginFromJar(File file, URLClassLoader urlClassLoader) {
         try (JarFile jarFile = new JarFile(file)) {
             // for each class in the jar file
             getAllClassNamesFrom(jarFile)
-                    .forEach(className -> createDevflectionPluginHolderForClass(className, urlClassLoader));
+                    .stream()
+                    .map(className -> createDevflectionPluginHolderForClass(className, urlClassLoader))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .forEach(plugins::add);
         } catch (IOException e) {
-            e.printStackTrace();
+            // log information about the file not being accessible
         }
     }
 
+    /**
+     *
+     * This method iterates over all entries in the jar file and checks if they end with .class,
+     * then replaces '/' chars with '.' and removes the .class extension.
+     * The returning format is a full class name, e.g. com.devflection.reflection.pluginLoader.PluginLoader
+     *
+     * @param jarFile The jar file from which we want to extract all the class names
+     * @return A list of strings representing the full class names in this package
+     */
     private List<String> getAllClassNamesFrom(JarFile jarFile) {
-        // iterate over all entries in the jar file and check if they end with .class, then replace '/' chars with '.'
-        // and remove the .class extension.
-        // The returning format should be a full classname, e.g. com.devflection.reflection.pluginLoader.PluginLoader
         return jarFile.stream()
                 .map(JarEntry::getName)
                 .filter(name -> name.endsWith(CLASS_EXTENSION))
@@ -83,32 +93,41 @@ public class PluginLoader implements IPluginLoader {
                 .collect(Collectors.toList());
     }
 
-    private void createDevflectionPluginHolderForClass(String className, URLClassLoader urlClassLoader) {
+    /**
+     *
+     * This method tries to load the class with the given class name and URLClassLoader. Then using reflection
+     * it checks if the loaded class implements the {@link DevflectionPlugin} interface. If it does implement the
+     * interface, it creates a new {@link DevflectionPluginHolder} and returns it.
+     * Otherwise it returns Optional.empty
+     *
+     * @param className The class name that we want to try to load and check if it
+     *                  implements the {@link DevflectionPlugin} interface
+     * @param urlClassLoader The class loader with which we want to try loading the given class
+     * @return An optional with the created {@link DevflectionPluginHolder} if the class implements the interface
+     * or an empty Optional
+     */
+    private Optional<DevflectionPluginHolder> createDevflectionPluginHolderForClass(String className,
+                                                                                    URLClassLoader urlClassLoader) {
         try {
-            // we load the class using the URLClassLoader that has the link to the current jar file
             Class<?> aClass = Class.forName(className, true, urlClassLoader);
 
-            // using reflection we check if class implements our plugin interface - DevflectionPlugin
-            // and that it is not the interface class
             if (DevflectionPlugin.class.isAssignableFrom(aClass) && aClass != DevflectionPlugin.class) {
                 System.out.println(getClass() + ": Found class '" + aClass + "' that implements the plugin interface.");
-                // using reflection we create an instance of the plugin
                 DevflectionPlugin devflectionPlugin = (DevflectionPlugin) aClass.newInstance();
-                DevflectionPluginHolder pluginHolder = new DevflectionPluginHolder(className, devflectionPlugin, urlClassLoader);
-                plugins.add(pluginHolder);
+                return Optional.of(new DevflectionPluginHolder(className, devflectionPlugin, urlClassLoader));
             }
         } catch (IllegalAccessException e) {
             // log that we cannot access class
         } catch (InstantiationException e) {
-            e.printStackTrace();
+            // log instantiation exception information
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            // log class not found exception information
         }
+        return Optional.empty();
     }
 
     @Override
     public void startPlugins() {
-        // go over all the instances and start them if they are not already started
         plugins.stream()
                 .filter(holder -> !holder.isRunning())
                 .forEach(DevflectionPluginHolder::startPlugin);
@@ -116,16 +135,18 @@ public class PluginLoader implements IPluginLoader {
 
     @Override
     public void stopPlugins() {
-        // go over all instances and stop them
-        // wait a bit for all plugins to stop
-        // close the class loaders
-        // proc GC so we can delete the jars
         plugins.forEach(DevflectionPluginHolder::stopPlugin);
         plugins.clear();
 
         forceSystemGarbageCollection();
     }
 
+    /**
+     * This method is a workaround... we want to force the garbage collection to run so there are no more references
+     * to specific JAR files, so we can remove them from the plugin directory.
+     *
+     * This should not be done in production like this.
+     */
     private void forceSystemGarbageCollection() {
         for (int i = 0; i < 5; i++) {
             System.gc();
@@ -150,6 +171,9 @@ public class PluginLoader implements IPluginLoader {
             running = true;
         }
 
+        /**
+         * This method stops the plugin instance, waits a bit and then also closes the associated URLClassLoader.
+         */
         public void stopPlugin() {
             pluginInstance.stopPlugin();
             running = false;
@@ -159,9 +183,9 @@ public class PluginLoader implements IPluginLoader {
 
                 classLoader.close();
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                // log information about interruption
             } catch (IOException e) {
-                e.printStackTrace();
+                // log information about IOException
             }
         }
 

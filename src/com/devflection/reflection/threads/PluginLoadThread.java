@@ -19,7 +19,7 @@ public class PluginLoadThread extends Thread {
             try {
                 Thread.sleep(sleepTime);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                // log information about interruption
             }
         }
     }
