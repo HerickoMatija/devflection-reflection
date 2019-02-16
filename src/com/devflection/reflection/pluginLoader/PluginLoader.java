@@ -128,9 +128,7 @@ public class PluginLoader implements IPluginLoader {
 
     @Override
     public void startPlugins() {
-        plugins.stream()
-                .filter(holder -> !holder.isRunning())
-                .forEach(DevflectionPluginHolder::startPlugin);
+        plugins.forEach(DevflectionPluginHolder::startPlugin);
     }
 
     @Override
@@ -167,8 +165,10 @@ public class PluginLoader implements IPluginLoader {
         }
 
         public void startPlugin() {
-            pluginInstance.startPlugin();
-            running = true;
+            if (!running) {
+                pluginInstance.startPlugin();
+                running = true;
+            }
         }
 
         /**
@@ -187,10 +187,6 @@ public class PluginLoader implements IPluginLoader {
             } catch (IOException e) {
                 // log information about IOException
             }
-        }
-
-        public boolean isRunning() {
-            return running;
         }
 
         @Override
