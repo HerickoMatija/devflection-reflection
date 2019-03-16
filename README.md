@@ -20,7 +20,7 @@ Compile classes with
 	
 Create the jar file 
 
-	jar cmfv src/resources/MANIFEST.mf DevflectionReflection.jar -C target .
+	jar cfev DevflectionReflection.jar com.devflection.reflection.Main -C target .
 
 Start the jar file
 
