@@ -1,7 +1,7 @@
 package com.devflection.reflection;
 
-import com.devflection.reflection.pluginLoader.IPluginLoader;
 import com.devflection.reflection.pluginLoader.PluginLoader;
+import com.devflection.reflection.pluginLoader.DevflectionPluginLoader;
 import com.devflection.reflection.threads.PluginLoadThread;
 import com.devflection.reflection.threads.UserInputThread;
 
@@ -21,7 +21,7 @@ public class Main {
         }
 
         // create an instance of our plugin loader
-        IPluginLoader pluginLoader = new PluginLoader(pluginDirectory);
+        PluginLoader pluginLoader = new DevflectionPluginLoader(pluginDirectory);
 
         PluginLoadThread pluginLoadThread = new PluginLoadThread(pluginLoader, sleepTime);
         UserInputThread userInputThread = new UserInputThread(pluginLoader);
