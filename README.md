@@ -20,7 +20,7 @@ Compile classes with
 	
 Create the jar file 
 
-	jar cfev DevflectionReflection.jar com.devflection.reflection.Main -C target .
+	jar cfe DevflectionReflection.jar com.devflection.reflection.Main -C target .
 
 Start the jar file
 
